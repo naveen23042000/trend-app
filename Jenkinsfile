@@ -8,23 +8,24 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/naveen23042000/trend-app.git'
+                git branch: 'main', url: 'https://github.com/naveen23042000/trend-app.git'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $DOCKER_IMAGE .'
+                sh 'docker build -t trend-app .'
+                sh 'docker tag trend-app $DOCKER_IMAGE'
             }
         }
 
         stage('Login and Push to DockerHub') {
             steps {
                 withCredentials([string(credentialsId: 'dockerhub-pass', variable: 'DOCKER_PASSWORD')]) {
-                    sh """
+                    sh '''
                     echo $DOCKER_PASSWORD | docker login -u naveenkumar492 --password-stdin
                     docker push $DOCKER_IMAGE
-                    """
+                    '''
                 }
             }
         }
@@ -34,6 +35,15 @@ pipeline {
                 sh 'kubectl apply -f deployment.yaml'
                 sh 'kubectl apply -f service.yaml'
             }
+        }
+    }
+
+    post {
+        failure {
+            echo 'Pipeline failed.'
+        }
+        success {
+            echo 'Pipeline executed successfully!'
         }
     }
 }
