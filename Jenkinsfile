@@ -6,12 +6,6 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                git 'https://github.com/naveen23042000/trend-app.git'
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
                 sh 'docker build -t $DOCKER_IMAGE .'
