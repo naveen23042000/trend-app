@@ -2,29 +2,27 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = 'naveenkumar492/trend-app'
-        AWS_REGION = 'us-west-2'
-        CLUSTER_NAME = 'trend-cluster'
+        DOCKER_IMAGE = "naveenkumar492/trend-app"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/naveen23042000/trend-app.git'
+                git 'https://github.com/naveen23042000/trend-app.git'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t ${DOCKER_IMAGE} ."
+                sh 'docker build -t $DOCKER_IMAGE .'
             }
         }
 
         stage('Login and Push to DockerHub') {
             steps {
-                withCredentials([string(credentialsId: 'dockerhub-pass', variable: 'DOCKER_PASSWORD')]) {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                     sh '''
-                        echo "$DOCKER_PASSWORD" | docker login -u naveenkumar492 --password-stdin
+                        echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
                         docker tag trend-app $DOCKER_IMAGE
                         docker push $DOCKER_IMAGE
                     '''
@@ -34,13 +32,12 @@ pipeline {
 
         stage('Update Kubeconfig') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-credentials',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
-                    sh 'aws eks --region $AWS_REGION update-kubeconfig --name $CLUSTER_NAME'
+                withCredentials([usernamePassword(credentialsId: 'aws-credentials', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh '''
+                        aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+                        aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+                        aws eks --region us-west-2 update-kubeconfig --name trend-cluster
+                    '''
                 }
             }
         }
