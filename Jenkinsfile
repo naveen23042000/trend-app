@@ -2,7 +2,8 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = 'naveenkumar492/trend-app'
+        IMAGE_NAME = 'trend-app'
+        DOCKER_REPO = 'naveenkumar492'
     }
 
     stages {
@@ -14,17 +15,17 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $DOCKER_IMAGE .'
+                sh "docker build -t ${DOCKER_REPO}/${IMAGE_NAME} ."
             }
         }
 
         stage('Login and Push to DockerHub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-pass', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                     sh '''
                         echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
-                        docker tag trend-app $DOCKER_IMAGE
-                        docker push $DOCKER_IMAGE
+                        docker tag trend-app $DOCKER_USERNAME/trend-app
+                        docker push $DOCKER_USERNAME/trend-app
                     '''
                 }
             }
@@ -32,15 +33,19 @@ pipeline {
 
         stage('Update Kubeconfig') {
             steps {
-                echo 'Kubeconfig step will be added here...'
-                // Add your AWS EKS or kubeconfig update steps here
+                // Uncomment and customize below if using Kubernetes deployment
+                // withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                //     sh 'export KUBECONFIG=$KUBECONFIG'
+                // }
+                echo "Kubeconfig update stage (optional, adjust as needed)"
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                echo 'Deployment step will be added here...'
-                // Add your kubectl apply -f k8s-deployment.yaml or similar
+                echo "Kubernetes deployment stage (optional, insert kubectl commands here)"
+                // Example:
+                // sh 'kubectl apply -f k8s/deployment.yaml'
             }
         }
     }
@@ -50,7 +55,7 @@ pipeline {
             echo 'Pipeline failed.'
         }
         success {
-            echo 'Pipeline succeeded.'
+            echo 'Pipeline completed successfully.'
         }
     }
 }
