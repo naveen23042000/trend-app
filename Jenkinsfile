@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "naveenkumar492/trend-app"
+        DOCKER_IMAGE = 'naveenkumar492/trend-app'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/naveen23042000/trend-app.git'
+                git branch: 'main', url: 'https://github.com/naveen23042000/trend-app.git'
             }
         }
 
@@ -20,7 +20,7 @@ pipeline {
 
         stage('Login and Push to DockerHub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                     sh '''
                         echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
                         docker tag trend-app $DOCKER_IMAGE
@@ -31,20 +31,23 @@ pipeline {
         }
 
         stage('Update Kubeconfig') {
+            when {
+                expression { return false } // Skip for now unless you configure this
+            }
             steps {
-                withCredentials([usernamePassword(credentialsId: 'aws-credentials', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                        aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-                        aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-                        aws eks --region us-west-2 update-kubeconfig --name trend-cluster
-                    '''
+                withCredentials([file(credentialsId: 'kubeconfig-credentials', variable: 'KUBECONFIG_FILE')]) {
+                    sh 'export KUBECONFIG=$KUBECONFIG_FILE'
                 }
             }
         }
 
         stage('Deploy to Kubernetes') {
+            when {
+                expression { return false } // Skip for now unless needed
+            }
             steps {
-                sh 'kubectl apply -f k8s-deployment-service.yaml --validate=false'
+                sh 'kubectl apply -f k8s/deployment.yaml'
+                sh 'kubectl apply -f k8s/service.yaml'
             }
         }
     }
@@ -52,6 +55,9 @@ pipeline {
     post {
         failure {
             echo 'Pipeline failed.'
+        }
+        success {
+            echo 'Pipeline succeeded.'
         }
     }
 }
