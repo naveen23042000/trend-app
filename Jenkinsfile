@@ -3,6 +3,8 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'naveenkumar492/trend-app'
+        AWS_REGION = 'us-west-2'
+        CLUSTER_NAME = 'trend-cluster'
     }
 
     stages {
@@ -14,7 +16,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $DOCKER_IMAGE .'
+                sh "docker build -t ${DOCKER_IMAGE} ."
             }
         }
 
@@ -22,17 +24,29 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'dockerhub-pass', variable: 'DOCKER_PASSWORD')]) {
                     sh '''
-                    echo "$DOCKER_PASSWORD" | docker login -u naveenkumar492 --password-stdin
-                    docker tag trend-app $DOCKER_IMAGE
-                    docker push $DOCKER_IMAGE
+                        echo "$DOCKER_PASSWORD" | docker login -u naveenkumar492 --password-stdin
+                        docker tag trend-app $DOCKER_IMAGE
+                        docker push $DOCKER_IMAGE
                     '''
+                }
+            }
+        }
+
+        stage('Update Kubeconfig') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    sh 'aws eks --region $AWS_REGION update-kubeconfig --name $CLUSTER_NAME'
                 }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                // Temporarily skipping validation
                 sh 'kubectl apply -f k8s-deployment-service.yaml --validate=false'
             }
         }
